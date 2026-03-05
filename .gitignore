@@ -1,5 +1,6 @@
-.ccls-cache
+/*cache*/
 /build/
+/.vscode/
 /compile_commands.json
-/sdkconfig
-/sdkconfig.old
+/sdkconfig*
+/.clangd
