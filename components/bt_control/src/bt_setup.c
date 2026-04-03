@@ -6,6 +6,7 @@
 #include "esp_a2dp_api.h"
 #include "esp_gap_bt_api.h"
 #include "log_handler.h"
+#include "ring_buf.h"
 
 #define APP_ESP_RET_AND_LOG_ON_ERROR(call) do {                                     \
     esp_err_t __app_err_rc = (call);                                                \
@@ -16,9 +17,10 @@
 } while (0)
 
 void audio_data_cb(const uint8_t *buf, uint32_t len) {
+    ring_push(buf, len);
     static uint8_t i = 0;
     i++;
-    if (i >= 70) {
+    if (i >= 100) {
         APP_LOG("AUDIO_CB", "Audio data has been received");
         i = 0;
     }
@@ -47,8 +49,10 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
             break;
         }
         case ESP_A2D_AUDIO_CFG_EVT: {
-            APP_LOG("A2DP_EVT","Audio cfg: ch_num %d, samp_freq %d, block_len %d", param->audio_cfg.mcc.cie.sbc_info.ch_mode,
-                param->audio_cfg.mcc.cie.sbc_info.samp_freq, param->audio_cfg.mcc.cie.sbc_info.block_len);
+            APP_LOG("A2DP_EVT","CFG: ch_num=%d, samp_freq=%d, block_len=%d, min_bitpool=%d, max_bitpool=%d",
+                param->audio_cfg.mcc.cie.sbc_info.ch_mode, param->audio_cfg.mcc.cie.sbc_info.samp_freq,
+                param->audio_cfg.mcc.cie.sbc_info.block_len, param->audio_cfg.mcc.cie.sbc_info.min_bitpool,
+                param->audio_cfg.mcc.cie.sbc_info.max_bitpool);
         break;
         }
 
