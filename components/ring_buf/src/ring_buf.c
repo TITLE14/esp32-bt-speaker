@@ -15,7 +15,7 @@ uint16_t ring_free_space(void) {
 }
 
 static void write_idx_incr(uint32_t bytes_to_incr) {
-    write_idx = (write_idx + bytes_to_incr) & RING_MASK;
+    write_idx = write_idx + bytes_to_incr;
 }
 
 void ring_read_idx_incr(uint32_t bytes_to_incr) {

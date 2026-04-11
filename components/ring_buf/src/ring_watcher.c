@@ -6,8 +6,8 @@
 
 static void ring_watcher_task(void* args) {
     while(1) {
-        uint16_t load = ring_used();
-        APP_LOG("RING_WATCHER", "Ring buffer load is: %d", load);
+        uint16_t free = ring_free_space();
+        APP_LOG("RING_WATCHER", "Ring buffer free space is: %d", free);
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }

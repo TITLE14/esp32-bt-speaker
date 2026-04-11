@@ -41,10 +41,11 @@ esp_err_t app_i2s_setup() {
 
 static void i2s_write_task(void* args) {
     while (1) {
-        static uint8_t buf[4096];
+        static uint8_t buf[2048];
         size_t bytes_written;
-        ring_read(buf, 4096);
-        i2s_channel_write(chan_handle, buf, 4096, &bytes_written, portMAX_DELAY);
+        ring_read(buf, 2048);
+        i2s_channel_write(chan_handle, buf, 2048, &bytes_written, portMAX_DELAY);
+        ring_read_idx_incr(bytes_written);
     }
 }
 

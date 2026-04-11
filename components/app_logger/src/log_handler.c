@@ -16,5 +16,5 @@ static void logger_task(void* arg) {
 
 void logger_init(void) {
     app_log_queue = xQueueCreate(10, sizeof(log_msg));
-    xTaskCreate(&logger_task, "logger_task", 2048, NULL, 3, NULL);
+    xTaskCreate(&logger_task, "logger_task", 4096, NULL, 3, NULL);
 }

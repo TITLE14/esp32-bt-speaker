@@ -12,5 +12,6 @@ void ring_zeroing(void);
 void ring_push(const uint8_t* source, uint32_t n_bytes_to_push);
 //read index needs to increased manually!
 void ring_read(uint8_t* dest, uint32_t n_bytes_to_read);
+void ring_read_idx_incr(uint32_t bytes_to_incr);
 
 #endif
