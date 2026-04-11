@@ -7,14 +7,7 @@
 #include "esp_gap_bt_api.h"
 #include "log_handler.h"
 #include "ring_buf.h"
-
-#define APP_ESP_RET_AND_LOG_ON_ERROR(call) do {                                     \
-    esp_err_t __app_err_rc = (call);                                                \
-    if (__app_err_rc != ESP_OK) {                                                   \
-        APP_LOG("BT_SETUP", "%s failed with exit code %d", #call, __app_err_rc);    \
-        return __app_err_rc;                                                        \
-    }                                                                               \
-} while (0)
+#include "app_i2s_setup.h"
 
 void audio_data_cb(const uint8_t *buf, uint32_t len) {
     ring_push(buf, len);
@@ -42,13 +35,22 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
         case ESP_A2D_AUDIO_STATE_EVT: {
             esp_a2d_audio_state_t state = param->audio_stat.state;
             switch (state) {
-                case ESP_A2D_AUDIO_STATE_SUSPEND: APP_LOG("A2DP_EVT", "Audio state: suspended"); break;
-                case ESP_A2D_AUDIO_STATE_STARTED: APP_LOG("A2DP_EVT", "Audio state: started"); break;
+                case ESP_A2D_AUDIO_STATE_SUSPEND: {
+                    app_i2s_disable();
+                    APP_LOG("A2DP_EVT", "Audio state: suspended");
+                    break;
+                }
+                case ESP_A2D_AUDIO_STATE_STARTED: {
+                    app_i2s_enable();
+                    APP_LOG("A2DP_EVT", "Audio state: started");
+                    break;
+                }
                 default: APP_LOG("A2DP_EVT", "Audio state is: %d", state);
             }
             break;
         }
         case ESP_A2D_AUDIO_CFG_EVT: {
+            app_i2s_change_cfg(param->audio_cfg.mcc.cie.sbc_info.ch_mode, param->audio_cfg.mcc.cie.sbc_info.samp_freq);
             APP_LOG("A2DP_EVT","CFG: ch_num=%d, samp_freq=%d, block_len=%d, min_bitpool=%d, max_bitpool=%d",
                 param->audio_cfg.mcc.cie.sbc_info.ch_mode, param->audio_cfg.mcc.cie.sbc_info.samp_freq,
                 param->audio_cfg.mcc.cie.sbc_info.block_len, param->audio_cfg.mcc.cie.sbc_info.min_bitpool,
@@ -72,7 +74,7 @@ static void gab_evt_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param
     }
 }
 
-esp_err_t bt_setup(void) {
+esp_err_t app_bt_setup(void) {
 
     APP_ESP_RET_AND_LOG_ON_ERROR(nvs_flash_init());
 
@@ -101,8 +103,6 @@ esp_err_t bt_setup(void) {
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_a2d_register_callback(&a2dp_evt_cb));
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_a2d_sink_init());
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_a2d_sink_register_data_callback(audio_data_cb));
-
-    APP_ESP_RET_AND_LOG_ON_ERROR(esp_a2d_sink_set_delay_value(1600));
 
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE));
 

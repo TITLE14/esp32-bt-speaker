@@ -10,6 +10,7 @@ uint16_t ring_free_space(void);
 uint16_t ring_used(void);
 void ring_zeroing(void);
 void ring_push(const uint8_t* source, uint32_t n_bytes_to_push);
+//read index needs to increased manually!
 void ring_read(uint8_t* dest, uint32_t n_bytes_to_read);
 
 #endif
