@@ -63,6 +63,7 @@ esp_err_t app_i2s_disable() {
     return ESP_OK;
 }
 
+// Might be removed
 void app_i2s_change_cfg(uint8_t ch_mode, uint8_t samp_freq) {
     if (ch_mode == ESP_A2D_SBC_CIE_CH_MODE_MONO) {
         std_cfg.slot_cfg.slot_mode = I2S_SLOT_MODE_MONO;
