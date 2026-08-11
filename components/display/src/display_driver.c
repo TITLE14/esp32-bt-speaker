@@ -48,8 +48,8 @@ static i2c_master_dev_handle_t dev_handle;
 
 static const i2c_device_config_t dev_cfg = {
     .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-    .device_address = (0x78 >> 1),
-    .scl_speed_hz = 200000
+    .device_address = 0x3C,
+    .scl_speed_hz = 400000
 };
 
 static uint8_t framebuffer[1024] = {0};
@@ -71,10 +71,10 @@ static const screen_area_config_t screen_areas[] = {
         .fb_offset    = PAGE_TO_INDEX(0),
         .data_size    = STATUS_HEIGHT * PAGE_WIDTH
     },
-    [CHARGE_AREA] = {
+    [BATTERY_AREA] = {
         .cursor_cmds  = {CMD_MODE, SET_PAGE_ADDR, 0x03, 0x07},
         .fb_offset    = PAGE_TO_INDEX(3),
-        .data_size    = CHARGE_HEIGHT * PAGE_WIDTH
+        .data_size    = BATTERY_HEIGHT * PAGE_WIDTH
     },
     [FULLSCREEN_AREA] = {
         .cursor_cmds  = {CMD_MODE, SET_PAGE_ADDR, 0x00, 0x07},
@@ -95,22 +95,26 @@ esp_err_t screen_init(){
     sizeof(init_cmds), -1));
 
     memset(&framebuffer[PAGE_TO_INDEX(2)], 0x04, PAGE_WIDTH); // status bar line
+    display_draw_bt(BT_DISCONNECTED_ICON);
+    display_draw_speaker(SPEAKER_OFF_ICON);
+    display_draw_rssi(RSSI_LEVEL_1_ICON);
+    display_update(FULLSCREEN_AREA);
     return ESP_OK;
 }
 
-void display_draw_charge(uint8_t charge) {
+void display_draw_battery_level(uint8_t level) {
     const uint8_t indent = 5; //px
     uint8_t digit_count;
     glyph_offset glyph_to_draw[3];
 
-    if(charge < 100 && charge > 9) {
+    if(level < 100 && level > 9) {
         digit_count = 2;
-        glyph_to_draw[0] = DIGIT_TO_OFFSET(charge / 10);
-        glyph_to_draw[1] = DIGIT_TO_OFFSET(charge % 10);
+        glyph_to_draw[0] = DIGIT_TO_OFFSET(level / 10);
+        glyph_to_draw[1] = DIGIT_TO_OFFSET(level % 10);
         glyph_to_draw[2] = 0;
-    } else if (charge < 10) {
+    } else if (level < 10) {
         digit_count = 1;
-        glyph_to_draw[0] = DIGIT_TO_OFFSET(charge);
+        glyph_to_draw[0] = DIGIT_TO_OFFSET(level);
     } else {
         digit_count = 3;
         glyph_to_draw[0] = ONE_OFFSET;
@@ -118,14 +122,14 @@ void display_draw_charge(uint8_t charge) {
         glyph_to_draw[2] = ZERO_OFFSET;
     }
 
-    memset(&framebuffer[PAGE_TO_INDEX(3)], 0, CHARGE_HEIGHT * PAGE_WIDTH); // charge area nullifying
+    memset(&framebuffer[PAGE_TO_INDEX(3)], 0, BATTERY_HEIGHT * PAGE_WIDTH); // charge area nullifying
     
     int base_index = PAGE_TO_INDEX(3);
     for (int i = 0; i < digit_count; ++i) {
-        glyph_draw(glyph_to_draw[i], CHARGE_HEIGHT, DIGIT_WIDTH, base_index);
+        glyph_draw(glyph_to_draw[i], BATTERY_HEIGHT, DIGIT_WIDTH, base_index);
         base_index += DIGIT_WIDTH + indent;
     }
-    glyph_draw(PERCENT_OFFSET, CHARGE_HEIGHT, PERCENT_WIDTH, base_index);
+    glyph_draw(PERCENT_OFFSET, BATTERY_HEIGHT, PERCENT_WIDTH, base_index);
 }
 
 void display_draw_bt(bt_icon_state state) {

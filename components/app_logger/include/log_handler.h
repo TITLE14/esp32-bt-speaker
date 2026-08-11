@@ -6,8 +6,8 @@
 #include <string.h>
 #include "esp_err.h"
 
-#define LOG_TAG_MAX_LENGTH 10
-#define LOG_TEXT_MAX_LENGTH 246
+#define LOG_TAG_MAX_LENGTH 15
+#define LOG_TEXT_MAX_LENGTH 241
 
 extern QueueHandle_t app_log_queue;
 

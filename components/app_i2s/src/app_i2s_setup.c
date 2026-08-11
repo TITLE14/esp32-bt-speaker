@@ -62,21 +62,3 @@ esp_err_t app_i2s_disable() {
     APP_ESP_RET_AND_LOG_ON_ERROR(i2s_channel_disable(chan_handle));
     return ESP_OK;
 }
-
-// Might be removed
-void app_i2s_change_cfg(uint8_t ch_mode, uint8_t samp_freq) {
-    if (ch_mode == ESP_A2D_SBC_CIE_CH_MODE_MONO) {
-        std_cfg.slot_cfg.slot_mode = I2S_SLOT_MODE_MONO;
-        chan_cfg.dma_frame_num = 2048;
-    } else {
-        std_cfg.slot_cfg.slot_mode = I2S_SLOT_MODE_STEREO;
-        chan_cfg.dma_frame_num = 1024;
-    }
-
-    switch (samp_freq) {
-        case ESP_A2D_SBC_CIE_SF_48K: std_cfg.clk_cfg.sample_rate_hz = 48000; break;
-        case ESP_A2D_SBC_CIE_SF_44K: std_cfg.clk_cfg.sample_rate_hz = 44100; break;
-        case ESP_A2D_SBC_CIE_SF_32K: std_cfg.clk_cfg.sample_rate_hz = 32000; break;
-        case ESP_A2D_SBC_CIE_SF_16K: std_cfg.clk_cfg.sample_rate_hz = 16000; break;
-    }
-}

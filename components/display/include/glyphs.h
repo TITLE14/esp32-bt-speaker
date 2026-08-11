@@ -5,7 +5,7 @@
 
 //measured in rows
 typedef enum {
-    CHARGE_HEIGHT =  5,
+    BATTERY_HEIGHT =  5,
     STATUS_HEIGHT =  2,
 } glyph_height;
 
@@ -19,19 +19,19 @@ typedef enum {
 } glyph_width;
 
 typedef enum {
-    ZERO_OFFSET =        0                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    ONE_OFFSET =         1                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    TWO_OFFSET =         2                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    THREE_OFFSET =       3                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    FOUR_OFFSET =        4                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    FIVE_OFFSET =        5                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    SIX_OFFSET =         6                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    SEVEN_OFFSET =       7                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    EIGHT_OFFSET =       8                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    NINE_OFFSET =        9                  * (DIGIT_WIDTH * CHARGE_HEIGHT),
-    PERCENT_OFFSET =     NINE_OFFSET        + (DIGIT_WIDTH * CHARGE_HEIGHT),
+    ZERO_OFFSET =        0                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    ONE_OFFSET =         1                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    TWO_OFFSET =         2                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    THREE_OFFSET =       3                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    FOUR_OFFSET =        4                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    FIVE_OFFSET =        5                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    SIX_OFFSET =         6                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    SEVEN_OFFSET =       7                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    EIGHT_OFFSET =       8                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    NINE_OFFSET =        9                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    PERCENT_OFFSET =     NINE_OFFSET        + (DIGIT_WIDTH * BATTERY_HEIGHT),
 
-    BT_OFF_OFFSET =      PERCENT_OFFSET     + (PERCENT_WIDTH * CHARGE_HEIGHT),
+    BT_OFF_OFFSET =      PERCENT_OFFSET     + (PERCENT_WIDTH * BATTERY_HEIGHT),
     BT_ON_OFFSET =       BT_OFF_OFFSET      + (BT_WIDTH * STATUS_HEIGHT),
 
     RSSI1_OFFSET =       BT_ON_OFFSET       + (BT_WIDTH * STATUS_HEIGHT),

@@ -1,13 +1,31 @@
+#include "freertos/idf_additions.h"
 #include "nvs_flash.h"
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_err.h"
+#include <stddef.h>
 #include <stdint.h>
 #include "esp_a2dp_api.h"
 #include "esp_gap_bt_api.h"
 #include "log_handler.h"
 #include "ring_buf.h"
 #include "app_i2s_setup.h"
+#include "display_driver.h"
+
+typedef struct {
+    int8_t rssi_delta;
+    rssi_level_icon icon;
+} rssi_threshold;
+
+static const rssi_threshold rssi_table[] = {
+    { 0,   RSSI_LEVEL_4_ICON },
+    {-15,  RSSI_LEVEL_3_ICON },
+    {-30,  RSSI_LEVEL_2_ICON },
+    {-128, RSSI_LEVEL_1_ICON } 
+};
+
+static esp_bd_addr_t master_bda = {0};
+static volatile bool a2d_is_connected = false;
 
 void audio_data_cb(const uint8_t *buf, uint32_t len) {
     ring_push(buf, len);
@@ -24,10 +42,23 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
         case ESP_A2D_CONNECTION_STATE_EVT: {
             esp_a2d_connection_state_t state = param->conn_stat.state;
             switch (state) {
-                case ESP_A2D_CONNECTION_STATE_DISCONNECTED: APP_LOG("A2DP_EVT", "State is: disconnected");break;
-                case ESP_A2D_CONNECTION_STATE_CONNECTING: APP_LOG("A2DP_EVT", "State is: connecting"); break;
-                case ESP_A2D_CONNECTION_STATE_CONNECTED: APP_LOG("A2DP_EVT", "State is: connected"); break;
-                case ESP_A2D_CONNECTION_STATE_DISCONNECTING: APP_LOG("A2DP_EVT", "State is: disconnecting"); break;
+                case ESP_A2D_CONNECTION_STATE_DISCONNECTED: {
+                    a2d_is_connected = false;
+                    memset(master_bda, 0, sizeof(esp_bd_addr_t));
+                    display_draw_bt(BT_DISCONNECTED_ICON);
+                    display_draw_rssi(RSSI_LEVEL_1_ICON);
+                    display_update(STATUS_BAR_AREA);
+                    APP_LOG("A2DP_EVT", "State is: disconnected");
+                    break;
+                }
+                case ESP_A2D_CONNECTION_STATE_CONNECTED: {
+                    a2d_is_connected = true;
+                    memcpy(master_bda, param->conn_stat.remote_bda, sizeof(esp_bd_addr_t));
+                    display_draw_bt(BT_CONNECTED_ICON);
+                    display_update(STATUS_BAR_AREA);
+                    APP_LOG("A2DP_EVT", "State is: connected");
+                    break;
+                }
                 default: APP_LOG("A2DP_EVT", "Connection state is: %d", state);
             }
             break;
@@ -37,11 +68,15 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
             switch (state) {
                 case ESP_A2D_AUDIO_STATE_SUSPEND: {
                     app_i2s_disable();
+                    display_draw_speaker(SPEAKER_OFF_ICON);
+                    display_update(STATUS_BAR_AREA);
                     APP_LOG("A2DP_EVT", "Audio state: suspended");
                     break;
                 }
                 case ESP_A2D_AUDIO_STATE_STARTED: {
                     app_i2s_enable();
+                    display_draw_speaker(SPEAKER_ON_ICON);
+                    display_update(STATUS_BAR_AREA);
                     APP_LOG("A2DP_EVT", "Audio state: started");
                     break;
                 }
@@ -49,28 +84,35 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
             }
             break;
         }
-        case ESP_A2D_AUDIO_CFG_EVT: {
-            app_i2s_change_cfg(param->audio_cfg.mcc.cie.sbc_info.ch_mode, param->audio_cfg.mcc.cie.sbc_info.samp_freq);
-            APP_LOG("A2DP_EVT","CFG: ch_num=%d, samp_freq=%d, block_len=%d, min_bitpool=%d, max_bitpool=%d",
-                param->audio_cfg.mcc.cie.sbc_info.ch_mode, param->audio_cfg.mcc.cie.sbc_info.samp_freq,
-                param->audio_cfg.mcc.cie.sbc_info.block_len, param->audio_cfg.mcc.cie.sbc_info.min_bitpool,
-                param->audio_cfg.mcc.cie.sbc_info.max_bitpool);
-        break;
-        }
-
         default: APP_LOG("A2DP_EVT","evt: %d", event);
     }
 }
 
-
 static void gab_evt_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
     switch(event) {
-        case ESP_BT_GAP_CONFIG_EIR_DATA_EVT: {
-            if(param->config_eir_data.stat == ESP_BT_STATUS_SUCCESS) {
-                APP_LOG("GAP_CB", "EIR has been set successfully");
+        case ESP_BT_GAP_READ_RSSI_DELTA_EVT: {
+            int8_t rssi = param->read_rssi_delta.rssi_delta;
+            APP_LOG("GAB_EVT", "RSSI=%d", rssi);
+
+            for (size_t i = 0; i < RSSI_LEVEL_COUNT; ++i) {
+                if(rssi >= rssi_table[i].rssi_delta) {
+                    display_draw_rssi(rssi_table[i].icon);
+                    break;
+                }
             }
+            display_update(STATUS_BAR_AREA);
+            break;
         }
         default: return;
+    }
+}
+
+static void rssi_getter_task(void* param) {
+    while (1) {
+        if(a2d_is_connected) {
+            esp_bt_gap_read_rssi_delta(master_bda);
+        }
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 
@@ -105,6 +147,8 @@ esp_err_t app_bt_setup(void) {
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_a2d_sink_register_data_callback(audio_data_cb));
 
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE));
+
+    xTaskCreate(rssi_getter_task, "RSSI_Getter", 2048, NULL, 3, NULL);
 
     return ESP_OK;
 }
