@@ -13,7 +13,7 @@ void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(500));
     screen_init();
     battery_init();
-    app_i2s_setup();
+    
     app_bt_setup();
     ring_watcher_start();
 }

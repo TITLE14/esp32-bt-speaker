@@ -29,12 +29,6 @@ static volatile bool a2d_is_connected = false;
 
 void audio_data_cb(const uint8_t *buf, uint32_t len) {
     ring_push(buf, len);
-    static uint8_t i = 0;
-    i++;
-    if (i >= 100) {
-        APP_LOG("AUDIO_CB", "Audio data has been received");
-        i = 0;
-    }
 }
 
 static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
@@ -92,7 +86,6 @@ static void gab_evt_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param
     switch(event) {
         case ESP_BT_GAP_READ_RSSI_DELTA_EVT: {
             int8_t rssi = param->read_rssi_delta.rssi_delta;
-            APP_LOG("GAB_EVT", "RSSI=%d", rssi);
 
             for (size_t i = 0; i < RSSI_LEVEL_COUNT; ++i) {
                 if(rssi >= rssi_table[i].rssi_delta) {

@@ -1,28 +1,32 @@
 #include "ring_buf.h"
 #include "string.h"
 #include "math.h"
+#include <stdatomic.h>
+#include <stdint.h>
 
 static uint8_t ring_buf[RING_SIZE];
-static uint32_t write_idx = 16384;//16384;
-static uint32_t read_idx = 0;
+static atomic_uint write_idx = 0;
+static atomic_uint read_idx = 0;
 
-uint16_t ring_used(void) {
-    return (write_idx - read_idx) & RING_MASK;
+uint32_t ring_used(void) {
+    return (atomic_load_explicit(&write_idx, memory_order_acquire) -
+        atomic_load_explicit(&read_idx, memory_order_acquire)) & RING_MASK;
 }
 
-uint16_t ring_free_space(void) {
-    return (RING_SIZE - ring_used()) & RING_MASK;
+uint32_t ring_free_space(void) {
+    return RING_MASK - ring_used();
 }
 
 static void write_idx_incr(uint32_t bytes_to_incr) {
-    write_idx = (write_idx + bytes_to_incr) & RING_MASK;
+    uint32_t new_idx = (atomic_load_explicit(&write_idx, memory_order_relaxed) + bytes_to_incr) & RING_MASK;
+    atomic_store_explicit(&write_idx, new_idx, memory_order_release);
 }
 
 void ring_read_idx_incr(uint32_t bytes_to_incr) {
-    uint32_t buf_used = ring_used();
-    uint32_t val_to_incr = fmin(buf_used, bytes_to_incr);
+    uint32_t read = atomic_load_explicit(&read_idx, memory_order_relaxed);
+    read = (read + bytes_to_incr) & RING_MASK;
 
-    read_idx = (read_idx + val_to_incr) & RING_MASK;
+    atomic_store_explicit(&read_idx, read, memory_order_release);
 }
 
 void ring_zeroing(void) {
@@ -30,32 +34,36 @@ void ring_zeroing(void) {
 }
 
 void ring_push(const uint8_t* source, uint32_t n_bytes_to_push) {
-    uint32_t new_idx = write_idx + n_bytes_to_push;
+    uint32_t write = atomic_load_explicit(&write_idx, memory_order_relaxed);
+    uint32_t new_idx = write + n_bytes_to_push;
 
     if (new_idx >= RING_SIZE) {
-        uint32_t first_half = RING_SIZE - write_idx;
-        memcpy(&ring_buf[write_idx], source, first_half);
+        uint32_t first_half = RING_SIZE - write;
+        memcpy(&ring_buf[write], source, first_half);
 
         uint32_t second_half = n_bytes_to_push - first_half;
         memcpy(&ring_buf[0], source + first_half, second_half);
 
         write_idx_incr(n_bytes_to_push);
     } else {
-        memcpy(&ring_buf[write_idx], source, n_bytes_to_push);
+        memcpy(&ring_buf[write], source, n_bytes_to_push);
         write_idx_incr(n_bytes_to_push);
     }
 }
 
 void ring_read(uint8_t* dest, uint32_t n_bytes_to_read) {
-    uint32_t new_idx = read_idx + n_bytes_to_read;
+    uint32_t read = atomic_load_explicit(&read_idx, memory_order_relaxed);
+    atomic_load_explicit(&write_idx, memory_order_acquire);
+
+    uint32_t new_idx = read + n_bytes_to_read;
     
     if (new_idx >= RING_SIZE) {
-        uint32_t first_half = RING_SIZE - read_idx;
-        memcpy(dest, &ring_buf[read_idx], first_half);
+        uint32_t first_half = RING_SIZE - read;
+        memcpy(dest, &ring_buf[read], first_half);
 
         uint32_t second_half = n_bytes_to_read - first_half;
         memcpy(dest + first_half, &ring_buf[0], second_half);
     } else {
-        memcpy(dest, &ring_buf[read_idx], n_bytes_to_read);
+        memcpy(dest, &ring_buf[read], n_bytes_to_read);
     }
 }
