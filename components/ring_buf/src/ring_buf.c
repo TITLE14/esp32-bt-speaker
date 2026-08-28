@@ -1,6 +1,5 @@
 #include "ring_buf.h"
 #include "string.h"
-#include "math.h"
 #include <stdatomic.h>
 #include <stdint.h>
 

@@ -49,7 +49,6 @@ static void i2s_write_task(void* args) {
     while (1) {
         if(ring_used() < sizeof(buf)) {
             vTaskDelay(1);
-            //TODO: notification from audio_data_cb
             continue;
         }
         ring_read(buf, sizeof(buf));
