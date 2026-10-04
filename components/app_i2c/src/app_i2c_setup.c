@@ -10,8 +10,8 @@ static i2c_master_bus_handle_t bus_handle;
 i2c_master_bus_config_t i2c_mst_config = {
     .clk_source = I2C_CLK_SRC_DEFAULT,
     .i2c_port = I2C_NUM_0,
-    .scl_io_num = GPIO_NUM_19,
-    .sda_io_num = GPIO_NUM_21,
+    .scl_io_num = GPIO_NUM_27,
+    .sda_io_num = GPIO_NUM_26,
     .glitch_ignore_cnt = 7
 };
 

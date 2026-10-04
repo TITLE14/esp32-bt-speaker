@@ -3,46 +3,69 @@
 #include "log_handler.h"
 #include "ring_buf.h"
 #include <stdint.h>
+#include "i2s_driver.h"
+#include "ring_watcher.h"
+
+static uint32_t high_threshold = 0;
+static uint32_t low_threshold = 0;
+
+static uint16_t samp_count = 0;
+static uint16_t samp_interval = 0;
+
+static volatile bool watcher_started = false;
+static TaskHandle_t ring_watcher_handle = NULL;
 
 static void ring_watcher_task(void* args) {
-    uint32_t min = UINT32_MAX;
-    uint32_t max = 0;
-    uint64_t sum = 0;
-    uint32_t samples = 0;
-    uint32_t first = 0;
+    static uint64_t used_sum = 0;
+    static uint32_t used_avg = 0;
 
     while (1) {
-        uint32_t used = ring_used();
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        APP_LOG("RING_WATCHER", "started");
+        while (watcher_started) {
+            used_sum = 0;
+            for (uint16_t i = 0; i < samp_count; ++i) {
+                if (!watcher_started) {
+                    break;
+                }
 
-        if (samples == 0)
-            first = used;
+                used_sum += ring_used();
+                vTaskDelay(pdMS_TO_TICKS(samp_interval));
+            }
 
-        if (used < min)
-            min = used;
+            if (!watcher_started) {
+                break;
+            }
 
-        if (used > max)
-            max = used;
+            used_avg = used_sum / samp_count;
+            APP_LOG("RING_WATCHER", "ring used avg=%" PRIu32, used_avg);
 
-        sum += used;
-        samples++;
-
-        if (samples >= 50) {
-            uint32_t avg = sum / samples;
-
-            APP_LOG("RING",
-                "first=%" PRIu32 " last=%" PRIu32 " min=%" PRIu32 " avg=%" PRIu32 " max=%" PRIu32,
-                first, used, min, avg, max);
-
-            min = UINT32_MAX;
-            max = 0;
-            sum = 0;
-            samples = 0;
+            if (used_avg > high_threshold) {
+                i2s_clock_tune(1);
+                continue;
+            } else if (used_avg < low_threshold) {
+                i2s_clock_tune(0);
+                continue;
+            }
         }
-
-        vTaskDelay(pdMS_TO_TICKS(200));
+        APP_LOG("RING_WATCHER", "stopped");
     }
 }
 
 void ring_watcher_start(void) {
-    xTaskCreate(ring_watcher_task, "ring_watcher_task", 2048, NULL, 4, NULL);
+    watcher_started = true;
+    xTaskNotifyGive(ring_watcher_handle);
+}
+
+void ring_watcher_stop(void) {
+    watcher_started = false;
+}
+
+void ring_watcher_init(uint8_t deadband_radius_percent, uint16_t sample_count, uint16_t sampling_interval_ms) {
+    low_threshold =  (RING_SIZE / 2u) - (RING_SIZE * deadband_radius_percent / 100u);
+    high_threshold = (RING_SIZE / 2u) + (RING_SIZE * deadband_radius_percent / 100u);
+
+    samp_count = sample_count;
+    samp_interval = sampling_interval_ms;
+    xTaskCreate(ring_watcher_task, "ring_watcher_task", 4096, NULL, 4, &ring_watcher_handle);
 }

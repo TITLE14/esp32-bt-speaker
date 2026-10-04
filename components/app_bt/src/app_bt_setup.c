@@ -1,5 +1,4 @@
 #include "freertos/idf_additions.h"
-#include "nvs_flash.h"
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_err.h"
@@ -9,7 +8,8 @@
 #include "esp_gap_bt_api.h"
 #include "log_handler.h"
 #include "ring_buf.h"
-#include "app_i2s_setup.h"
+#include "ring_watcher.h"
+#include "i2s_driver.h"
 #include "display_driver.h"
 
 typedef struct {
@@ -57,18 +57,26 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
             }
             break;
         }
+        case ESP_A2D_AUDIO_CFG_EVT: {
+            esp_a2d_cie_sbc_t sbc_cfg = param->audio_cfg.mcc.cie.sbc_info;
+            i2s_samp_freq sf = __builtin_ctz(sbc_cfg.samp_freq);
+            bool is_mono = (sbc_cfg.ch_mode & ESP_A2D_SBC_CIE_CH_MODE_MONO) ? true : false;
+            i2s_configure(is_mono, sf);
+        }
         case ESP_A2D_AUDIO_STATE_EVT: {
             esp_a2d_audio_state_t state = param->audio_stat.state;
             switch (state) {
                 case ESP_A2D_AUDIO_STATE_SUSPEND: {
-                    app_i2s_disable();
+                    i2s_stop();
+                    ring_watcher_stop();
                     display_draw_speaker(SPEAKER_OFF_ICON);
                     display_update(STATUS_BAR_AREA);
                     APP_LOG("A2DP_EVT", "Audio state: suspended");
                     break;
                 }
                 case ESP_A2D_AUDIO_STATE_STARTED: {
-                    app_i2s_enable();
+                    i2s_start();
+                    ring_watcher_start();
                     display_draw_speaker(SPEAKER_ON_ICON);
                     display_update(STATUS_BAR_AREA);
                     APP_LOG("A2DP_EVT", "Audio state: started");
@@ -110,9 +118,6 @@ static void rssi_getter_task(void* param) {
 }
 
 esp_err_t app_bt_setup(void) {
-
-    APP_ESP_RET_AND_LOG_ON_ERROR(nvs_flash_init());
-
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
