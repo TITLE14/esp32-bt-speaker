@@ -1,23 +1,12 @@
 #include "ring_buf.h"
-//TEMP
 #include "esp_log.h"
-static uint64_t write_cout = 0;
-static uint64_t read_cout = 0;
-
-uint64_t get_read_count(void) {
-    return read_cout;
-}
-uint64_t get_write_count(void) {
-    return write_cout;
-}
-//TEMP
 #include "freertos/idf_additions.h"
 #include "string.h"
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "log_handler.h"
+#include "app_logger.h"
 
 static uint8_t *ring_buf = NULL;
 static atomic_uint write_idx = 0;
@@ -28,9 +17,8 @@ static uint32_t ntf_threshold = 0;
 static atomic_bool notify_enabled = false;
 
 static void write_idx_incr(uint32_t bytes_to_incr) {
-    ++write_cout;
     if (ring_free_space() < bytes_to_incr) {
-        APP_LOG("RING", "No free space, incr skipped!");
+        APP_LOGW("RING", "No free space, incr skipped!");
         return;
     }
     uint32_t new_idx = (atomic_load_explicit(&write_idx, memory_order_relaxed) + bytes_to_incr) & RING_MASK;
@@ -38,7 +26,6 @@ static void write_idx_incr(uint32_t bytes_to_incr) {
 }
 
 static void read_idx_incr(uint32_t bytes_to_incr) {
-    ++read_cout;
     if(ring_used() < bytes_to_incr) {
         return;
     }
@@ -74,10 +61,6 @@ uint32_t ring_used(void) {
 
 uint32_t ring_free_space(void) {
     return RING_MASK - ring_used();
-}
-
-void ring_zeroing(void) {
-    memset(ring_buf, 0, RING_SIZE);
 }
 
 void ring_push(const uint8_t* source, uint32_t n_bytes_to_push) {

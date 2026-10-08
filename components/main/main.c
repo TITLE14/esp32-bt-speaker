@@ -1,19 +1,19 @@
 #include "nvs_flash.h"
 #include "app_bt_setup.h"
 #include "i2s_driver.h"
-#include "log_handler.h"
+#include "app_logger.h"
 #include "ring_watcher.h"
-#include "display_driver.h"
+#include "display.h"
 #include "app_i2c_setup.h"
 #include "battery_level.h"
 #include "ring_buf.h"
 
 void app_main(void) {
-    nvs_flash_init();
+    ESP_ERROR_CHECK(nvs_flash_init());
     logger_init();
     ring_init();
     app_i2c_init();
-    screen_init();
+    display_init();
     battery_init();
     i2s_init();
     app_bt_setup();

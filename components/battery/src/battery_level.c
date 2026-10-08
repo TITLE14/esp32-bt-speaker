@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "freertos/idf_additions.h"
-#include "ina219_driver.h"
-#include "display_driver.h"
+#include "power_monitor.h"
+#include "display.h"
 
 typedef struct {
     float voltage;
@@ -30,7 +30,7 @@ static const voltage_margin_point inr18650_lut[] = {
 };
 
 static uint8_t get_battery_level(void) {
-    ina219_pwr_data pwr = ina219_get_pwr_data();
+    pwr_data pwr = pw_get_data();
     float voltage = pwr.voltage;
     uint8_t lut_size = sizeof(inr18650_lut) / sizeof(voltage_margin_point);
 
@@ -68,6 +68,6 @@ static void battery_task(void* param) {
 }
 
 void battery_init(void) {
-    ina219_init();
+    pw_init();
     xTaskCreate(battery_task, "Battery_task", 4096, NULL, 3, NULL);
 }

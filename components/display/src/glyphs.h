@@ -1,3 +1,16 @@
+/*
+ * This file contains bitmap glyph data from multiple sources.
+ *
+ * The glyphs from index ZERO_INDEX through PERCENT_INDEX are derived from
+ * DejaVu Fonts and are subject to the DejaVu Fonts License.
+ *
+ * The full text of the DejaVu Fonts License is available in:
+ *     THIRD_PARTY_LICENSES/DejaVu_Fonts_License.txt
+ *
+ * The remaining bitmap glyphs are original works created for this project
+ * and are subject to the license specified in the repository root:
+ *     LICENSE
+ */
 #ifndef GLYPHS
 #define GLYPHS
 
@@ -19,31 +32,35 @@ typedef enum {
 } glyph_width;
 
 typedef enum {
-    ZERO_OFFSET =        0                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    ONE_OFFSET =         1                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    TWO_OFFSET =         2                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    THREE_OFFSET =       3                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    FOUR_OFFSET =        4                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    FIVE_OFFSET =        5                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    SIX_OFFSET =         6                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    SEVEN_OFFSET =       7                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    EIGHT_OFFSET =       8                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    NINE_OFFSET =        9                  * (DIGIT_WIDTH * BATTERY_HEIGHT),
-    PERCENT_OFFSET =     NINE_OFFSET        + (DIGIT_WIDTH * BATTERY_HEIGHT),
+    ZERO_INDEX =        0                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    ONE_INDEX =         1                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    TWO_INDEX =         2                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    THREE_INDEX =       3                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    FOUR_INDEX =        4                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    FIVE_INDEX =        5                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    SIX_INDEX =         6                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    SEVEN_INDEX =       7                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    EIGHT_INDEX =       8                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    NINE_INDEX =        9                 * (DIGIT_WIDTH * BATTERY_HEIGHT),
+    PERCENT_INDEX =     NINE_INDEX        + (DIGIT_WIDTH * BATTERY_HEIGHT),
 
-    BT_OFF_OFFSET =      PERCENT_OFFSET     + (PERCENT_WIDTH * BATTERY_HEIGHT),
-    BT_ON_OFFSET =       BT_OFF_OFFSET      + (BT_WIDTH * STATUS_HEIGHT),
+    BT_OFF_INDEX =      PERCENT_INDEX     + (PERCENT_WIDTH * BATTERY_HEIGHT),
+    BT_ON_INDEX =       BT_OFF_INDEX      + (BT_WIDTH * STATUS_HEIGHT),
 
-    RSSI1_OFFSET =       BT_ON_OFFSET       + (BT_WIDTH * STATUS_HEIGHT),
-    RSSI2_OFFSET =       RSSI1_OFFSET       + (RSSI_WIDTH * STATUS_HEIGHT),
-    RSSI3_OFFSET =       RSSI2_OFFSET       + (RSSI_WIDTH * STATUS_HEIGHT),
-    RSSI4_OFFSET =       RSSI3_OFFSET       + (RSSI_WIDTH * STATUS_HEIGHT),
+    RSSI1_INDEX =       BT_ON_INDEX       + (BT_WIDTH * STATUS_HEIGHT),
+    RSSI2_INDEX =       RSSI1_INDEX       + (RSSI_WIDTH * STATUS_HEIGHT),
+    RSSI3_INDEX =       RSSI2_INDEX       + (RSSI_WIDTH * STATUS_HEIGHT),
+    RSSI4_INDEX =       RSSI3_INDEX       + (RSSI_WIDTH * STATUS_HEIGHT),
 
-    SPEAKER_OFF_OFFSET = RSSI4_OFFSET       + (RSSI_WIDTH * STATUS_HEIGHT),
-    SPEAKER_ON_OFFSET =  SPEAKER_OFF_OFFSET + (SPEAKER_WIDTH * STATUS_HEIGHT)
-} glyph_offset;
+    SPEAKER_OFF_INDEX = RSSI4_INDEX       + (RSSI_WIDTH * STATUS_HEIGHT),
+    SPEAKER_ON_INDEX =  SPEAKER_OFF_INDEX + (SPEAKER_WIDTH * STATUS_HEIGHT)
+} glyph_indexes;
 
-static const uint8_t DejaVu_Sans_Glyphs[] = {
+/*
+ * DejaVu-derived glyphs: ZERO_INDEX through PERCENT_INDEX.
+ * Original project glyphs: BT_OFF_INDEX through SPEAKER_ON_INDEX.
+ */
+static const uint8_t glyphs[] = {
     //0
     0x00, 0x00, 0x80, 0xE0, 0xF8, 0xFC, 0xFE, 0x3E, 0x1E, 0x0F, 0x0F, 0x0F,
     0x0F, 0x0F, 0x1E, 0x3E, 0xFC, 0xFC, 0xF8, 0xE0, 0x80, 0x00, 0x00, 0x00,
@@ -237,4 +254,5 @@ static const uint8_t DejaVu_Sans_Glyphs[] = {
     0x04, 0x08, 0x10, 0x3F, 0x00, 0x04,
     0x22, 0x11, 0x0C, 0x03,
 };
+
 #endif

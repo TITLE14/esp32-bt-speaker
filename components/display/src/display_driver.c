@@ -4,11 +4,11 @@
 #include "app_i2c_setup.h"
 #include "driver/i2c_types.h"
 #include "esp_err.h"
-#include "log_handler.h"
+#include "app_logger.h"
 #include <stdint.h>
 #include <string.h>
 #include "glyphs.h"
-#include "display_driver.h"
+#include "display.h"
 
 #define BRIGHTNESS 0x7F
 
@@ -83,13 +83,13 @@ static const screen_area_config_t screen_areas[] = {
     }
 };
 
-static void glyph_draw(glyph_offset offset, glyph_height height, glyph_width width, int start_point) {
+static void glyph_draw(glyph_indexes offset, glyph_height height, glyph_width width, int start_point) {
     for (int i = 0; i < height; ++i, start_point += PAGE_WIDTH) {
-        memcpy(&framebuffer[start_point], &DejaVu_Sans_Glyphs[offset + (i * width)], width);
+        memcpy(&framebuffer[start_point], &glyphs[offset + (i * width)], width);
     }
 }
 
-esp_err_t screen_init(){
+esp_err_t display_init(){
     APP_ESP_RET_AND_LOG_ON_ERROR(app_i2c_add_device(&dev_cfg, &dev_handle));
     APP_ESP_RET_AND_LOG_ON_ERROR(i2c_master_transmit(dev_handle, init_cmds,
     sizeof(init_cmds), -1));
@@ -105,7 +105,7 @@ esp_err_t screen_init(){
 void display_draw_battery_level(uint8_t level) {
     const uint8_t indent = 5; //px
     uint8_t digit_count;
-    glyph_offset glyph_to_draw[3];
+    glyph_indexes glyph_to_draw[3];
 
     if(level < 100 && level > 9) {
         digit_count = 2;
@@ -117,33 +117,33 @@ void display_draw_battery_level(uint8_t level) {
         glyph_to_draw[0] = DIGIT_TO_OFFSET(level);
     } else {
         digit_count = 3;
-        glyph_to_draw[0] = ONE_OFFSET;
-        glyph_to_draw[1] = ZERO_OFFSET;
-        glyph_to_draw[2] = ZERO_OFFSET;
+        glyph_to_draw[0] = ONE_INDEX;
+        glyph_to_draw[1] = ZERO_INDEX;
+        glyph_to_draw[2] = ZERO_INDEX;
     }
 
-    memset(&framebuffer[PAGE_TO_INDEX(3)], 0, BATTERY_HEIGHT * PAGE_WIDTH); // charge area nullifying
+    memset(&framebuffer[PAGE_TO_INDEX(3)], 0, BATTERY_HEIGHT * PAGE_WIDTH); // BATTERY_AREA nullifying
     
     int base_index = PAGE_TO_INDEX(3);
     for (int i = 0; i < digit_count; ++i) {
         glyph_draw(glyph_to_draw[i], BATTERY_HEIGHT, DIGIT_WIDTH, base_index);
         base_index += DIGIT_WIDTH + indent;
     }
-    glyph_draw(PERCENT_OFFSET, BATTERY_HEIGHT, PERCENT_WIDTH, base_index);
+    glyph_draw(PERCENT_INDEX, BATTERY_HEIGHT, PERCENT_WIDTH, base_index);
 }
 
-void display_draw_bt(bt_icon_state state) {
-    glyph_offset glyph = BT_OFF_OFFSET + ((BT_WIDTH * STATUS_HEIGHT) * state);
+void display_draw_bt(bt_state_icon state) {
+    glyph_indexes glyph = BT_OFF_INDEX + ((BT_WIDTH * STATUS_HEIGHT) * state);
     glyph_draw(glyph, STATUS_HEIGHT, BT_WIDTH, BT_ICON_POS);
 }
 
 void display_draw_rssi(rssi_level_icon level) {
-    glyph_offset glyph = RSSI1_OFFSET + ((RSSI_WIDTH * STATUS_HEIGHT) * level);
+    glyph_indexes glyph = RSSI1_INDEX + ((RSSI_WIDTH * STATUS_HEIGHT) * level);
     glyph_draw(glyph, STATUS_HEIGHT, RSSI_WIDTH, RSSI_ICON_POS);
 }
 
 void display_draw_speaker(speaker_state_icon state) {
-    glyph_offset glyph = SPEAKER_OFF_OFFSET + ((SPEAKER_WIDTH * STATUS_HEIGHT) * state);
+    glyph_indexes glyph = SPEAKER_OFF_INDEX + ((SPEAKER_WIDTH * STATUS_HEIGHT) * state);
     glyph_draw(glyph, STATUS_HEIGHT, SPEAKER_WIDTH, SPEAKER_ICON_POS);
 }
 

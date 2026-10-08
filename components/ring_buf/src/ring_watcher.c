@@ -1,6 +1,6 @@
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
-#include "log_handler.h"
+#include "app_logger.h"
 #include "ring_buf.h"
 #include <stdint.h>
 #include "i2s_driver.h"
@@ -21,7 +21,7 @@ static void ring_watcher_task(void* args) {
 
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        APP_LOG("RING_WATCHER", "started");
+        APP_LOGD("RING_WATCHER", "started");
         while (watcher_started) {
             used_sum = 0;
             for (uint16_t i = 0; i < samp_count; ++i) {
@@ -38,7 +38,7 @@ static void ring_watcher_task(void* args) {
             }
 
             used_avg = used_sum / samp_count;
-            APP_LOG("RING_WATCHER", "ring used avg=%" PRIu32, used_avg);
+            APP_LOGD("RING_WATCHER", "ring used avg=%" PRIu32, used_avg);
 
             if (used_avg > high_threshold) {
                 i2s_clock_tune(1);
@@ -48,7 +48,7 @@ static void ring_watcher_task(void* args) {
                 continue;
             }
         }
-        APP_LOG("RING_WATCHER", "stopped");
+        APP_LOGD("RING_WATCHER", "stopped");
     }
 }
 

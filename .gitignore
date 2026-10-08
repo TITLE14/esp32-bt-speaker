@@ -1,6 +1,5 @@
-/*cache*/
-/build/
 /.vscode/
-/compile_commands.json
-/sdkconfig*
+/build/
 /.clangd
+/sdkconfig*
+!/sdkconfig.defaults

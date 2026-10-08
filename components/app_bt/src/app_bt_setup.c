@@ -6,11 +6,11 @@
 #include <stdint.h>
 #include "esp_a2dp_api.h"
 #include "esp_gap_bt_api.h"
-#include "log_handler.h"
+#include "app_logger.h"
 #include "ring_buf.h"
 #include "ring_watcher.h"
 #include "i2s_driver.h"
-#include "display_driver.h"
+#include "display.h"
 
 typedef struct {
     int8_t rssi_delta;
@@ -27,7 +27,7 @@ static const rssi_threshold rssi_table[] = {
 static esp_bd_addr_t master_bda = {0};
 static volatile bool a2d_is_connected = false;
 
-void audio_data_cb(const uint8_t *buf, uint32_t len) {
+static void audio_data_cb(const uint8_t *buf, uint32_t len) {
     ring_push(buf, len);
 }
 
@@ -42,7 +42,7 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
                     display_draw_bt(BT_DISCONNECTED_ICON);
                     display_draw_rssi(RSSI_LEVEL_1_ICON);
                     display_update(STATUS_BAR_AREA);
-                    APP_LOG("A2DP_EVT", "State is: disconnected");
+                    APP_LOGD("A2DP_EVT", "State is: disconnected");
                     break;
                 }
                 case ESP_A2D_CONNECTION_STATE_CONNECTED: {
@@ -50,10 +50,10 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
                     memcpy(master_bda, param->conn_stat.remote_bda, sizeof(esp_bd_addr_t));
                     display_draw_bt(BT_CONNECTED_ICON);
                     display_update(STATUS_BAR_AREA);
-                    APP_LOG("A2DP_EVT", "State is: connected");
+                    APP_LOGD("A2DP_EVT", "State is: connected");
                     break;
                 }
-                default: APP_LOG("A2DP_EVT", "Connection state is: %d", state);
+                default: APP_LOGD("A2DP_EVT", "Connection state is: %d", state);
             }
             break;
         }
@@ -62,6 +62,7 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
             i2s_samp_freq sf = __builtin_ctz(sbc_cfg.samp_freq);
             bool is_mono = (sbc_cfg.ch_mode & ESP_A2D_SBC_CIE_CH_MODE_MONO) ? true : false;
             i2s_configure(is_mono, sf);
+            break;
         }
         case ESP_A2D_AUDIO_STATE_EVT: {
             esp_a2d_audio_state_t state = param->audio_stat.state;
@@ -71,7 +72,7 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
                     ring_watcher_stop();
                     display_draw_speaker(SPEAKER_OFF_ICON);
                     display_update(STATUS_BAR_AREA);
-                    APP_LOG("A2DP_EVT", "Audio state: suspended");
+                    APP_LOGD("A2DP_EVT", "Audio state: suspended");
                     break;
                 }
                 case ESP_A2D_AUDIO_STATE_STARTED: {
@@ -79,14 +80,14 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
                     ring_watcher_start();
                     display_draw_speaker(SPEAKER_ON_ICON);
                     display_update(STATUS_BAR_AREA);
-                    APP_LOG("A2DP_EVT", "Audio state: started");
+                    APP_LOGD("A2DP_EVT", "Audio state: started");
                     break;
                 }
-                default: APP_LOG("A2DP_EVT", "Audio state is: %d", state);
+                default: APP_LOGD("A2DP_EVT", "Audio state is: %d", state);
             }
             break;
         }
-        default: APP_LOG("A2DP_EVT","evt: %d", event);
+        default: APP_LOGD("A2DP_EVT","evt: %d", event);
     }
 }
 
@@ -129,7 +130,7 @@ esp_err_t app_bt_setup(void) {
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_bluedroid_init_with_cfg(&bluedroid_cfg));
     APP_ESP_RET_AND_LOG_ON_ERROR(esp_bluedroid_enable());
 
-    APP_ESP_RET_AND_LOG_ON_ERROR(esp_bt_gap_set_device_name("TITLE's Speaker"));
+    APP_ESP_RET_AND_LOG_ON_ERROR(esp_bt_gap_set_device_name("Wave"));
     esp_bt_eir_data_t eir = {
         .include_uuid = true,
         .flag = ESP_BT_EIR_FLAG_GEN_DISC,

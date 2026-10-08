@@ -4,7 +4,17 @@
 #include "driver/i2c_master.h"
 #include "esp_err.h"
 
-esp_err_t app_i2c_add_device(const i2c_device_config_t *dev_config, i2c_master_dev_handle_t *ret_handle);
+/**
+ * @brief Initializes the shared I2C master bus.
+ */
 esp_err_t app_i2c_init();
+
+/**
+ * @brief Adds an I2C device to the shared master bus.
+ *
+ * @param dev_config Device configuration.
+ * @param ret_handle Output device handle.
+ */
+esp_err_t app_i2c_add_device(const i2c_device_config_t *dev_config, i2c_master_dev_handle_t *ret_handle);
 
 #endif

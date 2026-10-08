@@ -6,7 +6,6 @@
 #include "freertos/projdefs.h"
 #include "hal/i2s_ll.h"
 #include "portmacro.h"
-#include "rom/gpio.h"
 #include "soc/gpio_num.h"
 #include "soc/gpio_sig_map.h"
 #include "soc/interrupts.h"
@@ -19,45 +18,12 @@
 #include <stdint.h>
 #include <string.h>
 #include "i2s_driver.h"
-#include "log_handler.h"
+#include "app_logger.h"
 #include "ring_buf.h"
 #include "esp_private/gpio.h"
 
-/////////////////////////////////////////////////////////////////////////
-#include "driver/gpio.h"
-#include <math.h>
-#define TEST_FREQ_HZ   400.0f
-#define TEST_AMPLITUDE 0x0400
-
-static uint32_t phase = 0;
-static uint32_t phase_step;
-
-static void test_sine_init(uint32_t sample_rate)
-{
-    phase = 0;
-    phase_step = (uint32_t)((TEST_FREQ_HZ * 4294967296.0) / sample_rate);
-}
-
-static void test_sine_fill(uint8_t *buf, size_t bytes)
-{
-    int16_t *samples = (int16_t *)buf;
-    size_t count = bytes / sizeof(int16_t);
-
-    for (size_t i = 0; i < count; i += 2) {
-        int16_t sample =
-            (int16_t)(((int32_t)TEST_AMPLITUDE *
-                       sinf((float)phase * (2.0f * (float)M_PI / 4294967296.0f))));
-
-        samples[i + 0] = sample; // Left
-        samples[i + 1] = sample; // Right
-
-        phase += phase_step;
-    }
-}
-
-// extern void bt_debug_dump_a2dp_trace(void);
-// static bool dump_triggered = false;
-/////////////////////////////////////////////////////////////////////////
+#define DMA_BUF_SIZE   1024
+#define DMA_BUF_COUNT  10
 
 #define START_THRESHOLD (RING_SIZE / 2)
 
@@ -113,7 +79,7 @@ static void i2s_starter(void* args) {
 
         i2s_ll_start_out_link(&I2S0);
         i2s_ll_tx_start(&I2S0);
-        APP_LOG("I2S", "TX started");
+        APP_LOGD("I2S", "TX started");
     }
 }
 
@@ -126,15 +92,9 @@ static void i2s_write_task(void* args) {
             if (ring_used() >= DMA_BUF_SIZE) {
                 ring_read(read_buf, DMA_BUF_SIZE);
                 memcpy((void*)cpu_desc->buf, read_buf, DMA_BUF_SIZE);
-                // test_sine_fill((uint8_t *)cpu_desc->buf, DMA_BUF_SIZE);
-                // memset((void*)cpu_desc->buf, 0, DMA_BUF_SIZE);
             } else {
-                APP_LOG("I2S", "ring=%" PRIu32, ring_used());
+                APP_LOGW("I2S", "DMA buf nullified! ring=%" PRIu32, ring_used());
                 memset((void*)cpu_desc->buf, 0, DMA_BUF_SIZE);
-                // if (!dump_triggered) {
-                //     dump_triggered = true;
-                //     bt_debug_dump_a2dp_trace();
-                // }
             }
 
             cpu_desc->owner = 1;
@@ -145,7 +105,7 @@ static void i2s_write_task(void* args) {
 
 void i2s_init() {
     periph_module_enable(PERIPH_I2S0_MODULE);
-    // I2S_CONF2_REG & I2S_PDM_CONF_REG
+    //I2S_CONF2_REG & I2S_PDM_CONF_REG
     i2s_ll_tx_enable_std(&I2S0);
     //I2S_SAMPLE_RATE_CONF_REG
     i2s_ll_tx_set_bits_mod(&I2S0, 16);
@@ -162,7 +122,7 @@ void i2s_init() {
     i2s_ll_tx_set_ws_width(&I2S0, 16);
     //I2S_FIFO_CONF_REG
     i2s_ll_tx_force_enable_fifo_mod(&I2S0, true);
-    //GPIO matrix
+
     gpio_matrix_output(GPIO_NUM_22, I2S0O_BCK_OUT_IDX, false, false);
     gpio_matrix_output(GPIO_NUM_23,   I2S0O_WS_OUT_IDX,  false, false);
     gpio_matrix_output(GPIO_NUM_21, I2S0O_DATA_OUT23_IDX, false, false);
@@ -180,15 +140,9 @@ void i2s_init() {
         dma_desc[i].qe.stqe_next = &dma_desc[(i + 1) % DMA_BUF_COUNT];
     }
 
-    //TEMP
-    test_sine_init(44100);
-    gpio_reset_pin(4);
-    gpio_set_direction(4, GPIO_MODE_OUTPUT);
-    //TEMP
-
-    xTaskCreate(i2s_write_task, "I2S_write", DMA_BUF_SIZE + 2048 + 8192, NULL, 5, &write_task_handle);
+    xTaskCreate(i2s_write_task, "I2S_write", DMA_BUF_SIZE + 4096, NULL, 5, &write_task_handle);
     xTaskCreate(i2s_starter, "I2S_starter", 2048, NULL, 3, &start_task_handle);
-    APP_LOG("I2S", "Init complete");
+    APP_LOGD("I2S", "Init complete");
 }
 
 void i2s_configure(bool is_mono, const i2s_samp_freq freq) {
@@ -204,7 +158,7 @@ void i2s_configure(bool is_mono, const i2s_samp_freq freq) {
     rtc_clk_apll_coeff_set(current_apll_cfg.odir, current_apll_cfg.sdm0, current_apll_cfg.sdm1, current_apll_cfg.sdm2);
     current_sdm0 = current_apll_cfg.sdm0;
 
-    APP_LOG("I2S", "Configuration complete, mono=%d, sf=%d", is_mono, freq);
+    APP_LOGD("I2S", "Configuration complete, mono=%d, sf=%d", is_mono, freq);
 }
 
 void i2s_start(void) {
@@ -223,19 +177,17 @@ void i2s_start(void) {
 
     xTaskNotifyGive(start_task_handle);
     ring_notify_on_fill(start_task_handle, START_THRESHOLD);
-    APP_LOG("I2S", "Buffering");
+    APP_LOGD("I2S", "Buffering");
 }
 
 void i2s_stop(void) {
     i2s_ll_tx_disable_intr(&I2S0);
     i2s_ll_tx_stop(&I2S0);
     i2s_ll_tx_stop_link(&I2S0);
-    APP_LOG("I2S", "TX stopped");
+    APP_LOGD("I2S", "TX stopped");
 }
 
 bool i2s_clock_tune(bool is_incr) {
-    REG_WRITE(GPIO_OUT_W1TS_REG, 1ULL << 4);
-
     int16_t new_sdm0 = current_sdm0 + (is_incr ? 1 : -1);
 
     if (new_sdm0 < 0 || new_sdm0 > 255) {
@@ -244,7 +196,6 @@ bool i2s_clock_tune(bool is_incr) {
 
     current_sdm0 = new_sdm0;
     regi2c_ctrl_write_reg(I2C_APLL, I2C_APLL_HOSTID, I2C_APLL_DSDM0, (uint8_t)current_sdm0);
-    REG_WRITE(GPIO_OUT_W1TC_REG, 1ULL << 4);
-    APP_LOG("I2S", "New APLL SDM0 is %d", current_sdm0);
+    APP_LOGD("I2S", "New APLL SDM0 is %d", current_sdm0);
     return true;
 }

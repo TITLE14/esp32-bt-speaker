@@ -1,4 +1,4 @@
 idf_component_register(
-    SRCS "src/log_handler.c"
+    SRC_DIRS "src"
     INCLUDE_DIRS "include"
 )

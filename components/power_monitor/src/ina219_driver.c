@@ -1,11 +1,11 @@
+//For details, see the official datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
+
 #include "app_i2c_setup.h"
 #include "driver/i2c_master.h"
 #include "esp_err.h"
-#include "log_handler.h"
+#include "app_logger.h"
 #include <stdint.h>
-#include "ina219_driver.h"
-
-//For details, see the official datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
+#include "power_monitor.h"
 
 #define MAX_CURRENT     1.6f
 #define R_SHUNT         0.1f
@@ -69,7 +69,7 @@ static const i2c_device_config_t dev_cfg = {
     .scl_speed_hz = 400000
 };
 
-esp_err_t ina219_init() {
+esp_err_t pw_init() {
     // Read/write operations require Big-Endian format
     APP_ESP_RET_AND_LOG_ON_ERROR(app_i2c_add_device(&dev_cfg, &dev_hadnle));
     APP_ESP_RET_AND_LOG_ON_ERROR(i2c_master_transmit(dev_hadnle,
@@ -79,8 +79,8 @@ esp_err_t ina219_init() {
     return ESP_OK;
 }
 
-ina219_pwr_data ina219_get_pwr_data(void) {
-    ina219_pwr_data pwr_data = {0};
+pwr_data pw_get_data(void) {
+    pwr_data pwr_data = {0};
     uint16_t config = INA219_DEF_CONFIG_VAL;
     
     
