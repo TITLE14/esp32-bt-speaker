@@ -1,4 +1,4 @@
-// For details, see the official technical reference manual: https://www.mousenr.lt/pdfdocs/ESP32-Tech_Reference.pdf?srsltid=AfmBOopIkAqyA6kA0CNbsgdPdZEKxojQCzrADQ81qtk5k257k95TWN6w
+// For details, see the official technical reference manual: https://www.mouser.lt/pdfdocs/ESP32-Tech_Reference.pdf
 
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"

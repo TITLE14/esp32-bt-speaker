@@ -1,4 +1,4 @@
-//For details, see the official datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
+// For details, see the official datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
 
 #include "app_i2c_setup.h"
 #include "driver/i2c_master.h"

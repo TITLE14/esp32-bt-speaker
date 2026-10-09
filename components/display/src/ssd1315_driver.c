@@ -1,4 +1,4 @@
-//the code below is for ssd1315 oled i2c screen
+// For details, see the official datasheet: https://cursedhardware.github.io/epd-driver-ic/SSD1315.pdf
 
 #include "driver/i2c_master.h"
 #include "app_i2c_setup.h"
