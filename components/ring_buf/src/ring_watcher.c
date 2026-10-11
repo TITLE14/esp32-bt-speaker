@@ -2,6 +2,7 @@
 #include "freertos/projdefs.h"
 #include "app_logger.h"
 #include "ring_buf.h"
+#include <stdatomic.h>
 #include <stdint.h>
 #include "i2s_driver.h"
 #include "ring_watcher.h"
@@ -12,7 +13,7 @@ static uint32_t low_threshold = 0;
 static uint16_t samp_count = 0;
 static uint16_t samp_interval = 0;
 
-static volatile bool watcher_started = false;
+static atomic_bool watcher_started = ATOMIC_VAR_INIT(false);
 static TaskHandle_t ring_watcher_handle = NULL;
 
 static void ring_watcher_task(void* args) {
@@ -22,10 +23,10 @@ static void ring_watcher_task(void* args) {
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         APP_LOGD("RING_WATCHER", "started");
-        while (watcher_started) {
+        while (atomic_load_explicit(&watcher_started, memory_order_relaxed)) {
             used_sum = 0;
             for (uint16_t i = 0; i < samp_count; ++i) {
-                if (!watcher_started) {
+                if (!atomic_load_explicit(&watcher_started, memory_order_relaxed)) {
                     break;
                 }
 
@@ -33,7 +34,7 @@ static void ring_watcher_task(void* args) {
                 vTaskDelay(pdMS_TO_TICKS(samp_interval));
             }
 
-            if (!watcher_started) {
+            if (!atomic_load_explicit(&watcher_started, memory_order_relaxed)) {
                 break;
             }
 
@@ -53,12 +54,12 @@ static void ring_watcher_task(void* args) {
 }
 
 void ring_watcher_start(void) {
-    watcher_started = true;
+    atomic_store_explicit(&watcher_started, true, memory_order_relaxed);
     xTaskNotifyGive(ring_watcher_handle);
 }
 
 void ring_watcher_stop(void) {
-    watcher_started = false;
+    atomic_store_explicit(&watcher_started, false, memory_order_relaxed);
 }
 
 void ring_watcher_init(uint8_t deadband_radius_percent, uint16_t sample_count, uint16_t sampling_interval_ms) {

@@ -9,6 +9,9 @@
 #include <string.h>
 #include "glyphs.h"
 #include "display.h"
+#include "portmacro.h"
+
+#define FRAMEBUF_SIZE 1024
 
 #define BRIGHTNESS 0x7F
 
@@ -45,14 +48,17 @@ typedef struct {
 } screen_area_config_t;
 
 static i2c_master_dev_handle_t dev_handle;
-
 static const i2c_device_config_t dev_cfg = {
     .dev_addr_length = I2C_ADDR_BIT_LEN_7,
     .device_address = 0x3C,
     .scl_speed_hz = 400000
 };
 
-static uint8_t framebuffer[1024] = {0};
+static TaskHandle_t updater_task_handle = NULL;
+
+static uint8_t framebuffer[FRAMEBUF_SIZE] = {0};
+static SemaphoreHandle_t framebuf_mutex = NULL;
+static uint8_t update_buffer[FRAMEBUF_SIZE] = {0};
 
 static const uint8_t init_cmds[] = {
     CMD_MODE,
@@ -89,16 +95,65 @@ static void glyph_draw(glyph_indexes offset, glyph_height height, glyph_width wi
     }
 }
 
+static esp_err_t display_update(screen_area area) {
+    const screen_area_config_t* area_cfg = &screen_areas[area];
+
+    xSemaphoreTake(framebuf_mutex, portMAX_DELAY);
+    memcpy(&update_buffer[area_cfg->fb_offset], &framebuffer[area_cfg->fb_offset], area_cfg->data_size);
+    xSemaphoreGive(framebuf_mutex);
+
+    i2c_master_transmit_multi_buffer_info_t data_buf[2] = {
+        {.write_buffer = (uint8_t[]){DATA_MODE}, .buffer_size = 1},
+        {.write_buffer = &update_buffer[area_cfg->fb_offset], .buffer_size = area_cfg->data_size}
+    };
+
+    APP_ESP_RET_AND_LOG_ON_ERROR(i2c_master_transmit(dev_handle,
+        area_cfg->cursor_cmds, 4, -1));
+    APP_ESP_RET_AND_LOG_ON_ERROR(i2c_master_multi_buffer_transmit(dev_handle, data_buf, 2, -1));
+
+    APP_LOGD("DISPLAY", "Update complete");
+    return ESP_OK;
+}
+
+static void updater_task(void* args) {
+    uint32_t pending;
+    while (1) {
+        xTaskNotifyWait(0, UINT32_MAX, &pending, portMAX_DELAY);
+
+        bool is_fullscreen = false;
+        if ((pending) & (1UL << STATUS_BAR_AREA) && (pending & (1UL << BATTERY_AREA))) is_fullscreen = true;
+
+        if (is_fullscreen || (pending & (1UL << FULLSCREEN_AREA))) {
+            display_update(FULLSCREEN_AREA);
+        } else if (pending & (1UL << STATUS_BAR_AREA)) {
+            display_update(STATUS_BAR_AREA);
+        } else if (pending & (1UL << BATTERY_AREA)) {
+            display_update(BATTERY_AREA);
+        }
+    }
+}
+
 esp_err_t display_init(){
     APP_ESP_RET_AND_LOG_ON_ERROR(app_i2c_add_device(&dev_cfg, &dev_handle));
     APP_ESP_RET_AND_LOG_ON_ERROR(i2c_master_transmit(dev_handle, init_cmds,
     sizeof(init_cmds), -1));
 
+    framebuf_mutex = xSemaphoreCreateMutex();
+    if (framebuf_mutex == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    BaseType_t rc = xTaskCreate(updater_task, "display_updater_task", 4096, NULL, 3, &updater_task_handle);
+    if (rc != pdPASS) {
+        return ESP_FAIL;
+    }
+
     memset(&framebuffer[PAGE_TO_INDEX(2)], 0x04, PAGE_WIDTH); // status bar line
     display_draw_bt(BT_DISCONNECTED_ICON);
     display_draw_speaker(SPEAKER_OFF_ICON);
     display_draw_rssi(RSSI_LEVEL_1_ICON);
-    display_update(FULLSCREEN_AREA);
+    display_request_update(FULLSCREEN_AREA);
+
+    APP_LOGD("DISPLAY", "Init complete");
     return ESP_OK;
 }
 
@@ -122,41 +177,44 @@ void display_draw_battery_level(uint8_t level) {
         glyph_to_draw[2] = ZERO_INDEX;
     }
 
+    int base_index = PAGE_TO_INDEX(3);
+
+    xSemaphoreTake(framebuf_mutex, portMAX_DELAY);
     memset(&framebuffer[PAGE_TO_INDEX(3)], 0, BATTERY_HEIGHT * PAGE_WIDTH); // BATTERY_AREA nullifying
     
-    int base_index = PAGE_TO_INDEX(3);
+
     for (int i = 0; i < digit_count; ++i) {
         glyph_draw(glyph_to_draw[i], BATTERY_HEIGHT, DIGIT_WIDTH, base_index);
         base_index += DIGIT_WIDTH + indent;
     }
     glyph_draw(PERCENT_INDEX, BATTERY_HEIGHT, PERCENT_WIDTH, base_index);
+    xSemaphoreGive(framebuf_mutex);
 }
 
 void display_draw_bt(bt_state_icon state) {
     glyph_indexes glyph = BT_OFF_INDEX + ((BT_WIDTH * STATUS_HEIGHT) * state);
+
+    xSemaphoreTake(framebuf_mutex, portMAX_DELAY);
     glyph_draw(glyph, STATUS_HEIGHT, BT_WIDTH, BT_ICON_POS);
+    xSemaphoreGive(framebuf_mutex);
 }
 
 void display_draw_rssi(rssi_level_icon level) {
     glyph_indexes glyph = RSSI1_INDEX + ((RSSI_WIDTH * STATUS_HEIGHT) * level);
+
+    xSemaphoreTake(framebuf_mutex, portMAX_DELAY);
     glyph_draw(glyph, STATUS_HEIGHT, RSSI_WIDTH, RSSI_ICON_POS);
+    xSemaphoreGive(framebuf_mutex);
 }
 
 void display_draw_speaker(speaker_state_icon state) {
     glyph_indexes glyph = SPEAKER_OFF_INDEX + ((SPEAKER_WIDTH * STATUS_HEIGHT) * state);
+
+    xSemaphoreTake(framebuf_mutex, portMAX_DELAY);
     glyph_draw(glyph, STATUS_HEIGHT, SPEAKER_WIDTH, SPEAKER_ICON_POS);
+    xSemaphoreGive(framebuf_mutex);
 }
 
-esp_err_t display_update(screen_area area) {
-    const screen_area_config_t* area_cfg = &screen_areas[area];
-    i2c_master_transmit_multi_buffer_info_t data_buf[2] = {
-        {.write_buffer = (uint8_t[]){DATA_MODE}, .buffer_size = 1},
-        {.write_buffer = &framebuffer[area_cfg->fb_offset], .buffer_size = area_cfg->data_size}
-    };
-
-    APP_ESP_RET_AND_LOG_ON_ERROR(i2c_master_transmit(dev_handle,
-        area_cfg->cursor_cmds, 4, -1));
-    APP_ESP_RET_AND_LOG_ON_ERROR(i2c_master_multi_buffer_transmit(dev_handle, data_buf, 2, -1));
-    
-    return ESP_OK;
+void display_request_update(screen_area area) {
+    xTaskNotify(updater_task_handle, 1UL << area, eSetBits);
 }

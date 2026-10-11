@@ -60,7 +60,7 @@ static void battery_task(void* param) {
 
         if (level != new_level) {
             display_draw_battery_level(new_level);
-            display_update(BATTERY_AREA);
+            display_request_update(BATTERY_AREA);
             level = new_level;
         }
         vTaskDelay(pdMS_TO_TICKS(1000));

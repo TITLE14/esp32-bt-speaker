@@ -7,7 +7,8 @@
 typedef enum : uint8_t {
     STATUS_BAR_AREA,
     BATTERY_AREA,
-    FULLSCREEN_AREA
+    FULLSCREEN_AREA,
+    SCREEN_AREA_COUNT
 } screen_area;
 
 typedef enum : uint8_t {
@@ -74,6 +75,6 @@ void display_draw_speaker(speaker_state_icon state);
  *
  * @param area Screen area to update.
  */
-esp_err_t display_update(screen_area area);
+void display_request_update(screen_area area);
 
 #endif

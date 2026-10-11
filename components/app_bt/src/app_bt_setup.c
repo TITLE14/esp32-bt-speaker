@@ -24,6 +24,8 @@ static const rssi_threshold rssi_table[] = {
     {-128, RSSI_LEVEL_1_ICON } 
 };
 
+static portMUX_TYPE a2dp_state_mux = portMUX_INITIALIZER_UNLOCKED;
+
 static esp_bd_addr_t master_bda = {0};
 static volatile bool a2d_is_connected = false;
 
@@ -37,19 +39,31 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
             esp_a2d_connection_state_t state = param->conn_stat.state;
             switch (state) {
                 case ESP_A2D_CONNECTION_STATE_DISCONNECTED: {
+                    portENTER_CRITICAL(&a2dp_state_mux);
+
                     a2d_is_connected = false;
                     memset(master_bda, 0, sizeof(esp_bd_addr_t));
+
+                    portEXIT_CRITICAL(&a2dp_state_mux);
+
                     display_draw_bt(BT_DISCONNECTED_ICON);
                     display_draw_rssi(RSSI_LEVEL_1_ICON);
-                    display_update(STATUS_BAR_AREA);
+                    display_request_update(STATUS_BAR_AREA);
+
                     APP_LOGD("A2DP_EVT", "State is: disconnected");
                     break;
                 }
                 case ESP_A2D_CONNECTION_STATE_CONNECTED: {
+                    portENTER_CRITICAL(&a2dp_state_mux);
+
                     a2d_is_connected = true;
                     memcpy(master_bda, param->conn_stat.remote_bda, sizeof(esp_bd_addr_t));
+
+                    portEXIT_CRITICAL(&a2dp_state_mux);
+
                     display_draw_bt(BT_CONNECTED_ICON);
-                    display_update(STATUS_BAR_AREA);
+                    display_request_update(STATUS_BAR_AREA);
+
                     APP_LOGD("A2DP_EVT", "State is: connected");
                     break;
                 }
@@ -71,7 +85,7 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
                     i2s_stop();
                     ring_watcher_stop();
                     display_draw_speaker(SPEAKER_OFF_ICON);
-                    display_update(STATUS_BAR_AREA);
+                    display_request_update(STATUS_BAR_AREA);
                     APP_LOGD("A2DP_EVT", "Audio state: suspended");
                     break;
                 }
@@ -79,7 +93,7 @@ static void a2dp_evt_cb (esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
                     i2s_start();
                     ring_watcher_start();
                     display_draw_speaker(SPEAKER_ON_ICON);
-                    display_update(STATUS_BAR_AREA);
+                    display_request_update(STATUS_BAR_AREA);
                     APP_LOGD("A2DP_EVT", "Audio state: started");
                     break;
                 }
@@ -102,7 +116,7 @@ static void gab_evt_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param
                     break;
                 }
             }
-            display_update(STATUS_BAR_AREA);
+            display_request_update(STATUS_BAR_AREA);
             break;
         }
         default: return;
@@ -110,9 +124,19 @@ static void gab_evt_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param
 }
 
 static void rssi_getter_task(void* param) {
+    esp_bd_addr_t addr;
+    bool connected;
+
     while (1) {
-        if(a2d_is_connected) {
-            esp_bt_gap_read_rssi_delta(master_bda);
+        portENTER_CRITICAL(&a2dp_state_mux);
+
+        connected = a2d_is_connected;
+        memcpy(addr, master_bda, sizeof(addr));
+
+        portEXIT_CRITICAL(&a2dp_state_mux);
+
+        if(connected) {
+            esp_bt_gap_read_rssi_delta(addr);
         }
         vTaskDelay(pdMS_TO_TICKS(2000));
     }

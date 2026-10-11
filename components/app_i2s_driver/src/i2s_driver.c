@@ -25,6 +25,9 @@
 #define DMA_BUF_SIZE   1024
 #define DMA_BUF_COUNT  10
 
+#define START_REQUESTED  (1U << 0)
+#define RING_BUF_READY   (1U << 1)
+
 #define START_THRESHOLD (RING_SIZE / 2)
 
 typedef struct {
@@ -55,6 +58,10 @@ static DMA_ATTR uint8_t  dma_buf[DMA_BUF_COUNT][DMA_BUF_SIZE] = {0};
 static TaskHandle_t write_task_handle = NULL;
 static TaskHandle_t start_task_handle = NULL;
 
+
+static EventGroupHandle_t start_events = NULL;
+static const EventBits_t start_requirements = START_REQUESTED | RING_BUF_READY;
+
 static int16_t current_sdm0 = 0;
 static apll_cuefs current_apll_cfg = {0};
 
@@ -74,8 +81,8 @@ static void IRAM_ATTR i2s_dma_isr(void *arg) {
 
 static void i2s_starter(void* args) {
     while (1) {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        xEventGroupWaitBits(start_events,start_requirements,
+            pdTRUE, pdTRUE, portMAX_DELAY);
 
         i2s_ll_start_out_link(&I2S0);
         i2s_ll_tx_start(&I2S0);
@@ -140,6 +147,7 @@ void i2s_init() {
         dma_desc[i].qe.stqe_next = &dma_desc[(i + 1) % DMA_BUF_COUNT];
     }
 
+    start_events = xEventGroupCreate();
     xTaskCreate(i2s_write_task, "I2S_write", DMA_BUF_SIZE + 4096, NULL, 5, &write_task_handle);
     xTaskCreate(i2s_starter, "I2S_starter", 2048, NULL, 3, &start_task_handle);
     APP_LOGD("I2S", "Init complete");
@@ -175,8 +183,8 @@ void i2s_start(void) {
     i2s_ll_set_out_link_addr(&I2S0, (uint32_t)&dma_desc & 0xFFFFF);
     regi2c_ctrl_write_reg(I2C_APLL, I2C_APLL_HOSTID, I2C_APLL_DSDM0, (uint8_t)current_apll_cfg.sdm0);
 
-    xTaskNotifyGive(start_task_handle);
-    ring_notify_on_fill(start_task_handle, START_THRESHOLD);
+    xEventGroupSetBits(start_events, START_REQUESTED);
+    ring_notify_on_fill(start_events, RING_BUF_READY, START_THRESHOLD);
     APP_LOGD("I2S", "Buffering");
 }
 

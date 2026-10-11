@@ -12,7 +12,8 @@ static uint8_t *ring_buf = NULL;
 static atomic_uint write_idx = 0;
 static atomic_uint read_idx = 0;
 
-static TaskHandle_t ntf_task = NULL;
+static EventGroupHandle_t evt_group = NULL;
+static EventBits_t evt_mask = 0;
 static uint32_t ntf_threshold = 0;
 static atomic_bool notify_enabled = false;
 
@@ -43,13 +44,14 @@ void ring_init(void) {
     }
 }
 
-void ring_notify_on_fill(TaskHandle_t notify_task, uint32_t notify_threshold) {
-    ntf_task = notify_task;
+void ring_notify_on_fill(EventGroupHandle_t event_group, EventBits_t event_mask, uint32_t notify_threshold) {
+    evt_group = event_group;
     ntf_threshold = notify_threshold;
+    evt_mask = event_mask;
     atomic_exchange_explicit(&notify_enabled, true, memory_order_acq_rel);
 
     if (ring_used() >= notify_threshold && atomic_exchange_explicit(&notify_enabled, false, memory_order_acq_rel)) {
-        xTaskNotifyGive(notify_task);
+        xEventGroupSetBits(evt_group, evt_mask);
         return;
     }
 }
@@ -82,7 +84,7 @@ void ring_push(const uint8_t* source, uint32_t n_bytes_to_push) {
 
     if (atomic_load_explicit(&notify_enabled, memory_order_acquire) && ring_used() >= ntf_threshold &&
     atomic_exchange_explicit(&notify_enabled, false, memory_order_acq_rel)) {
-        xTaskNotifyGive(ntf_task);
+        xEventGroupSetBits(evt_group, evt_mask);
     }
 }
 
